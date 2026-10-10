@@ -1,0 +1,22 @@
+---
+import Icon from './Icon.astro';
+import { copy, navIds, site, type Language } from '../data/site';
+const { lang } = Astro.props as { lang: Language };
+const t = copy[lang];
+---
+<a href="#main" class="skip-link">{t.skip}</a>
+<header class="site-header">
+ <div class="container header-inner">
+  <a class="brand" href={`/${lang}/`}><span class="brand-mark"><Icon name="scales" size={27} /></span><span><strong>{t.name}</strong><small>{t.advocate} <span aria-hidden="true">/</span> {t.location}</small></span></a>
+  <nav class="desktop-nav" aria-label={t.menu}>{navIds.slice(0,6).map((id,i)=><a href={`#${id}`}>{t.nav[i]}</a>)}</nav>
+  <div class="header-actions"><div class="language-switch" aria-label={t.language}><a href="/ne/" lang="ne" hreflang="ne-NP" aria-current={lang==='ne'?'page':undefined}>नेपाली</a><span aria-hidden="true">/</span><a href="/en/" lang="en" hreflang="en-NP" aria-current={lang==='en'?'page':undefined}>EN</a></div><a class="header-call" href={`tel:${site.telephone}`} aria-label={`${t.call}: ${site.phone}`}><Icon name="phone" size={17}/><span>{t.call}</span></a></div>
+  <details class="mobile-menu"><summary aria-label={t.menu}><Icon name="menu"/></summary><nav aria-label={t.menu}>{navIds.map((id,i)=><a href={`#${id}`}>{t.nav[i]}</a>)}</nav></details>
+ </div>
+</header>
+<script>
+ const menu = document.querySelector<HTMLDetailsElement>('.mobile-menu');
+ menu?.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{menu.open=false;}));
+ document.addEventListener('keydown',e=>{if(e.key==='Escape' && menu?.open){menu.open=false;menu.querySelector('summary')?.focus();}});
+ document.addEventListener('click',e=>{if(menu?.open && !menu.contains(e.target as Node))menu.open=false;});
+ document.querySelectorAll<HTMLAnchorElement>('.language-switch a').forEach(a=>a.addEventListener('click',()=>{a.hash=window.location.hash;}));
+</script>

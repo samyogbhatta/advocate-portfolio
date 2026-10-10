@@ -1,0 +1,54 @@
+---
+import '../styles/global.css';
+import { copy, site, type Language } from '../data/site';
+interface Props { lang: Language; noindex?: boolean; title?: string; }
+const { lang, noindex = false, title } = Astro.props;
+const t = copy[lang];
+const origin = Astro.site!;
+const url = new URL(`/${lang}/`, origin).href;
+const configured = origin.hostname !== 'example.com';
+const entity = new URL('/#advocate', origin).href;
+const practice = new URL('/#practice', origin).href;
+const schema = {
+ '@context': 'https://schema.org', '@graph': [
+ { '@type': 'Person', '@id': entity, name: site.name, alternateName: site.nameNe, jobTitle: 'Advocate', telephone: site.telephone, email: site.email, image: new URL('/social.jpg', origin).href, worksFor: { '@id': practice } },
+ { '@type': 'LegalService', '@id': practice, name: 'Advocate Dinesh Duwadi', url, telephone: site.telephone, email: site.email, founder: { '@id': entity }, areaServed: [{ '@type': 'Place', name: 'Dhading' }, { '@type': 'AdministrativeArea', name: 'Bagmati Province' }, { '@type': 'Country', name: 'Nepal' }], address: { '@type': 'PostalAddress', addressLocality: 'Dhading', addressRegion: 'Bagmati Province', addressCountry: 'NP' } },
+ { '@type': 'WebSite', '@id': new URL('/#website', origin).href, url: origin.href, name: 'Advocate Dinesh Duwadi', inLanguage: ['ne-NP', 'en-NP'], publisher: { '@id': entity } },
+ { '@type': 'WebPage', '@id': url, url, name: t.title, description: t.description, inLanguage: lang === 'ne' ? 'ne-NP' : 'en-NP', about: { '@id': entity }, isPartOf: { '@id': new URL('/#website', origin).href } },
+ { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: t.nav[0], item: url }] },
+ { '@type': 'FAQPage', '@id': `${url}#faq`, inLanguage: lang, mainEntity: t.faqs.map(([q,a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) },
+ ]
+};
+---
+<!doctype html>
+<html lang={lang}>
+ <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title || t.title}</title>
+  <meta name="description" content={t.description} />
+  <meta name="robots" content={noindex || !configured ? 'noindex, follow' : 'index, follow, max-image-preview:large'} />
+  <link rel="canonical" href={url} />
+  <link rel="alternate" hreflang="ne-NP" href={new URL('/ne/', origin)} />
+  <link rel="alternate" hreflang="en-NP" href={new URL('/en/', origin)} />
+  <link rel="alternate" hreflang="x-default" href={new URL('/ne/', origin)} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#071B33" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={title || t.title} />
+  <meta property="og:description" content={t.description} />
+  <meta property="og:url" content={url} />
+  <meta property="og:site_name" content="Advocate Dinesh Duwadi" />
+  <meta property="og:locale" content={lang === 'ne' ? 'ne_NP' : 'en_NP'} />
+  <meta property="og:locale:alternate" content={lang === 'ne' ? 'en_NP' : 'ne_NP'} />
+  <meta property="og:image" content={new URL('/social.jpg', origin)} />
+  <meta property="og:image:width" content="1200" /><meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content={t.portraitAlt} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={t.title} /><meta name="twitter:description" content={t.description} />
+  <meta name="twitter:image" content={new URL('/social.jpg', origin)} />
+  {!noindex && <script type="application/ld+json" set:html={JSON.stringify(schema).replace(/</g, '\\u003c')} />}
+ </head>
+ <body><slot /></body>
+</html>

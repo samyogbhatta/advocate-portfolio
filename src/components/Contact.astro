@@ -1,0 +1,76 @@
+---
+import { Image } from 'astro:assets';
+import portrait from '../assets/portrait.png';
+import Icon from './Icon.astro';
+import { copy, site, type Language } from '../data/site';
+const { lang } = Astro.props as {lang: Language};
+const t = copy[lang];
+const endpoint = import.meta.env.PUBLIC_CONTACT_ENDPOINT || '';
+const categories = [...t.services.map(s=>s[0]), ...t.areas, t.fields.other];
+---
+<section id="contact" class="contact-section section-pad">
+ <div class="container contact-grid">
+  <div class="contact-info"><p class="eyebrow">{t.contactLabel}</p><h2 class="multiline">{t.contactTitle}</h2><p>{t.contactText}</p>
+   <div class="contact-person"><Image src={portrait} alt={t.portraitAlt} width={72} height={92} format="webp" loading="lazy" /><span><strong>{t.advocate} {t.name}</strong><small>{t.location}</small></span></div>
+   <a class="contact-detail" href={`tel:${site.telephone}`}><Icon name="phone"/><span><small>{t.phoneLabel}</small><strong dir="ltr">{lang==='ne'?'९८५११५९८०७':site.phone}</strong></span></a>
+   <a class="contact-detail" href={`mailto:${site.email}`}><Icon name="mail"/><span><small>{t.emailLabel}</small><strong>{site.email}</strong></span></a>
+   <div class="contact-detail"><Icon name="pin"/><span><small>{t.locationLabel}</small><strong>{t.location}</strong>{site.officeAddress && <span>{site.officeAddress}</span>}</span></div>
+   <p class="contact-relationship">{t.relationship}</p>
+  </div>
+  <div class="form-panel"><h3>{t.formTitle}</h3><p>{t.formIntro}</p><small>{t.fields.required}</small>
+   <form id="consultation-form" data-endpoint={endpoint} data-email={site.email} data-messages={JSON.stringify(t.errors)} data-labels={JSON.stringify(t.fields)} novalidate>
+    <div class="form-grid">
+     <div class="field"><label for="name">{t.fields.name} *</label><input id="name" name="name" autocomplete="name" required maxlength="100" aria-describedby="name-error"/><span class="field-error" id="name-error"></span></div>
+     <div class="field"><label for="phone">{t.fields.phone} *</label><input id="phone" name="phone" type="tel" autocomplete="tel" required maxlength="30" aria-describedby="phone-error"/><span class="field-error" id="phone-error"></span></div>
+     <div class="field full"><label for="email">{t.fields.email}</label><input id="email" name="email" type="email" autocomplete="email" maxlength="150" aria-describedby="email-error"/><span class="field-error" id="email-error"></span></div>
+     <div class="field"><label for="subject">{t.fields.subject} *</label><input id="subject" name="subject" required maxlength="150" aria-describedby="subject-error"/><span class="field-error" id="subject-error"></span></div>
+     <div class="field"><label for="category">{t.fields.category} *</label><select id="category" name="category" required aria-describedby="category-error"><option value="">{t.fields.choose}</option>{categories.map(c=><option>{c}</option>)}</select><span class="field-error" id="category-error"></span></div>
+     <div class="field full"><label for="message">{t.fields.message} *</label><textarea id="message" name="message" rows="4" required maxlength="1000" aria-describedby="message-error"></textarea><span class="field-error" id="message-error"></span></div>
+    </div>
+    <label class="consent" for="consent"><input id="consent" name="consent" type="checkbox" required aria-describedby="consent-error"/><span>{t.fields.consent}</span></label><span class="field-error" id="consent-error"></span>
+    <p class="form-note">{endpoint ? t.endpointNote : t.draftNote}</p>
+    <button class="button button-navy form-submit" type="submit" disabled>{endpoint?t.send:t.draft}<Icon/></button>
+    <p class="form-status" role="status" aria-live="polite"></p>
+    <noscript><p>{t.noScript}</p></noscript>
+   </form>
+  </div>
+ </div>
+</section>
+<script>
+ const form = document.querySelector<HTMLFormElement>('#consultation-form');
+ if(form){
+  const submit = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+  submit.disabled=false;
+  const messages = JSON.parse(form.dataset.messages!);
+  const labels = JSON.parse(form.dataset.labels!);
+  const status = form.querySelector<HTMLElement>('.form-status')!;
+  const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>('input,textarea,select'));
+  const normalize=(v:string)=>v.replace(/[०-९]/g,c=>String('०१२३४५६७८९'.indexOf(c)));
+  function errorFor(f: typeof fields[number]){
+   if(f instanceof HTMLInputElement && f.type==='checkbox')return f.checked?'':messages.consent;
+   if(f.required&&!f.value.trim())return messages.required;
+   if(f.name==='phone'&&!/^\+?[\d\s().-]{7,30}$/.test(normalize(f.value.trim())))return messages.phone;
+   if(f.name==='phone'){const length=normalize(f.value).replace(/\D/g,'').length;if(length<7||length>15)return messages.phone;}
+   if(f.name==='email'&&f.value&&!f.validity.valid)return messages.email;
+   return '';
+  }
+  function validate(f:typeof fields[number]){const msg=errorFor(f);document.getElementById(`${f.id}-error`)!.textContent=msg;f.setAttribute('aria-invalid',msg?'true':'false');return !msg;}
+  fields.forEach(f=>f.addEventListener('input',()=>{if(f.getAttribute('aria-invalid')==='true')validate(f);}));
+  form.addEventListener('submit',async e=>{
+   e.preventDefault();status.textContent='';
+   const invalid=fields.filter(f=>!validate(f));if(invalid.length){invalid[0].focus();return;}
+   const payload=Object.fromEntries(new FormData(form).entries());payload.phone=normalize(String(payload.phone));
+   if(!form.dataset.endpoint){
+    const body=['name','phone','email','category','message'].map(k=>`${labels[k]}: ${payload[k]||'—'}`).join('\n\n');
+    window.location.href=`mailto:${form.dataset.email}?subject=${encodeURIComponent(String(payload.subject))}&body=${encodeURIComponent(body)}`;
+    status.textContent=messages.draft;return;
+   }
+   submit.disabled=true;status.textContent=messages.sending;
+   try{
+    const response=await fetch(form.dataset.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,language:document.documentElement.lang}),signal:AbortSignal.timeout(15000)});
+    const result=await response.json();if(!response.ok||result.ok!==true)throw new Error('Delivery failed');
+    status.textContent=messages.sent;form.reset();
+   }catch{status.textContent=messages.failed;}finally{submit.disabled=false;}
+  });
+ }
+</script>
